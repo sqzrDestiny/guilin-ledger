@@ -107,13 +107,14 @@ function Button({ children, variant = "primary", className = "", ...props }) {
     </button>
   );
 }
-
+//主组件 记账软件的主题
 function App() {
   const [data, setData] = useState(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return initialData;
       const parsed = JSON.parse(raw);
+      //return后面是页面结构 也就是用户看到的
       return {
         ...initialData,
         ...parsed,
@@ -486,7 +487,7 @@ function App() {
             </Card>
 
             <Card>
-              <div className="mb-4 flex items-center gap-2 text-lg font-semibold"><Plus className="h-5 w-5" />添加消费</div>
+              <div className="mb-4 flex items-center gap-2 text-lg font-semibold"><Plus className="h-5 w-5" />添加一笔消费</div>
               <form className="space-y-4" onSubmit={addExpense}>
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="日期"><input type="date" className="w-full rounded-2xl border border-slate-200 px-3 py-2 outline-none focus:border-slate-400" value={expenseForm.date} onChange={(e) => setExpenseForm({ ...expenseForm, date: e.target.value })} /></Field>
