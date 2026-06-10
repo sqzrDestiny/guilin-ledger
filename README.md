@@ -1,16 +1,38 @@
-# React + Vite
+# 旅行账本
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+通用旅行 / 多人 AA 记账工具，适合朋友旅行、聚餐、短途出行时记录共同账单。
 
-Currently, two official plugins are available:
+## 功能
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- 多账本管理：为不同旅行或活动创建独立账本
+- 自定义成员：每个账本可以维护自己的参与成员
+- AA 分摊：每笔账单可选择付款人和参与分摊成员
+- 个人消费：非 AA 账单只计入付款人个人消费
+- 统计和结算：统计总消费、分类消费、每日消费、成员应收应付，并给出结算建议
+- 本地保存：数据保存在当前浏览器的 `localStorage`
+- 导出分享：支持导出账本 JSON、CSV 明细和分享图片
 
-## React Compiler
+## 本地开发
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+npm install
+npm run dev
+```
 
-## Expanding the ESLint configuration
+## 检查和构建
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+npm run lint
+npm run test:run
+npm run build
+```
+
+## 数据说明
+
+新版数据使用 `travel-ledger-app-v2` 保存到浏览器本地。旧版 `guilin-trip-ledger-v1` 只用于检测和导出旧数据备份，不再作为主数据源。
+
+目前没有登录、云同步、服务器或数据库。更换浏览器、清理浏览器数据或换设备前，请先导出 JSON 备份。
+
+## 部署
+
+执行 `npm run build` 后，`dist` 目录为静态部署产物，可部署到 Netlify 等静态网站服务。
