@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import {
   ArrowLeft,
   ArrowRightLeft,
+  ArrowUp,
   CalendarDays,
   Camera,
   Check,
@@ -384,6 +385,10 @@ function App() {
     setEditingRecordId(null);
     setRecordForm(makeRecordForm(currentLedger));
     setIsRecordFormOpen(true);
+  }
+
+  function scrollToTop() {
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function startEditRecord(record) {
@@ -1151,9 +1156,12 @@ function App() {
           </div>
         )}
 
-        <button type="button" className="fixed bottom-5 right-5 z-40 inline-flex h-14 items-center justify-center gap-2 rounded-full bg-slate-950 px-5 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition hover:bg-slate-800 lg:hidden" onClick={startAddRecord} aria-label="添加账单">
+        <button type="button" className="fixed bottom-5 left-1/2 z-40 inline-flex h-14 -translate-x-1/2 items-center justify-center gap-2 rounded-full bg-slate-950 px-6 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition hover:bg-slate-800 lg:hidden" onClick={startAddRecord} aria-label="添加账单">
           <Plus className="h-6 w-6" />
           记一笔
+        </button>
+        <button type="button" className="fixed bottom-5 right-5 z-40 inline-flex h-12 w-12 items-center justify-center rounded-full bg-white text-slate-700 shadow-lg shadow-slate-900/15 ring-1 ring-slate-200 transition hover:bg-slate-50 lg:hidden" onClick={scrollToTop} aria-label="回到顶部">
+          <ArrowUp className="h-5 w-5" />
         </button>
       </div>
     );
