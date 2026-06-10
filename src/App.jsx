@@ -148,6 +148,7 @@ function App() {
   const [categoryDraft, setCategoryDraft] = useState("");
   const [recordFilter, setRecordFilter] = useState("全部");
   const [dateFilter, setDateFilter] = useState({ start: "", end: "" });
+  const [copyStatus, setCopyStatus] = useState("idle");
   const [legacyBackupAvailable] = useState(() => Boolean(localStorage.getItem(LEGACY_STORAGE_KEY)));
   const reportRef = useRef(null);
   const importInputRef = useRef(null);
@@ -532,6 +533,66 @@ function App() {
 
     const csv = rows.map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll('"', '""')}"`).join(",")).join(String.fromCharCode(10));
     downloadText(`${currentLedger.name || "旅行账本"}-消费明细.csv`, String.fromCharCode(0xfeff) + csv, "text/csv;charset=utf-8");
+  }
+
+  function buildSettlementText() {
+    const members = currentLedger.members.map((member) => member.name).join("、") || "暂无成员";
+    const lines = [
+      "【旅行账本结算】",
+      "",
+      `账本：${currentLedger.name || "旅行账本"}`,
+      `成员：${members}`,
+      "",
+      `总消费：¥${money(stats.total)}`,
+      `AA 总额：¥${money(stats.aaTotal)}`,
+      `人均参考：¥${money(stats.perMember)}`,
+      `账单数量：${currentLedger.records.length} 笔`,
+      "",
+      "结算建议：",
+    ];
+
+    if (currentLedger.records.length === 0) {
+      lines.push("目前还没有账单，暂无结算建议。");
+    } else if (stats.transfers.length === 0) {
+      lines.push("目前无需互相转账。");
+    } else {
+      for (const transfer of stats.transfers) {
+        lines.push(`${transfer.from} 给 ${transfer.to} ¥${money(transfer.amount)}`);
+      }
+    }
+
+    if (currentLedger.adjustments.length > 0) {
+      lines.push("", `已记录 ${currentLedger.adjustments.length} 条结算调整，以上建议已按当前账本统计。`);
+    }
+
+    lines.push("", "账单已整理，如有问题可以再核对。");
+    return lines.join("\n");
+  }
+
+  async function copySettlementText() {
+    const text = buildSettlementText();
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+
+      setCopyStatus("copied");
+      window.setTimeout(() => setCopyStatus("idle"), 1800);
+    } catch {
+      setCopyStatus("idle");
+      alert(`复制失败，可以手动复制下面这段文字：\n\n${text}`);
+    }
   }
 
   function importJson(file) {
@@ -982,11 +1043,19 @@ function App() {
 
             <div className={`grid gap-5 xl:grid-cols-2 ${activeDetailTab === "overview" ? "" : "hidden lg:grid"}`}>
               <Card>
-                <div className="mb-4 flex items-center gap-2 text-lg font-semibold">
-                  <ArrowRightLeft className="h-5 w-5" />
-                  结算建议
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-2 text-lg font-semibold">
+                    <ArrowRightLeft className="h-5 w-5" />
+                    结算建议
+                  </div>
+                  <Button variant="outline" onClick={copySettlementText}>
+                    {copyStatus === "copied" ? <Check className="h-4 w-4" /> : <FileDown className="h-4 w-4" />}
+                    {copyStatus === "copied" ? "已复制" : "复制结算文案"}
+                  </Button>
                 </div>
-                {stats.transfers.length === 0 ? (
+                {currentLedger.records.length === 0 ? (
+                  <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">还没有账单，先记一笔后再结算。</div>
+                ) : stats.transfers.length === 0 ? (
                   <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">目前没有需要互相转账的款项。</div>
                 ) : (
                   <div className="space-y-3">
@@ -1090,8 +1159,21 @@ function App() {
             </Card>
 
             <Card className={activeDetailTab === "share" ? "lg:hidden" : "hidden"}>
-              <div className="mb-4 text-lg font-semibold">导出与备份</div>
+              <div className="mb-4">
+                <div className="text-lg font-semibold">分享给同行</div>
+                <div className="mt-1 text-sm text-slate-500">优先复制文字或导出图片，明细和备份适合留档。</div>
+              </div>
               <div className="grid gap-2">
+                <Button className="w-full" onClick={copySettlementText}>
+                  {copyStatus === "copied" ? <Check className="h-4 w-4" /> : <FileDown className="h-4 w-4" />}
+                  {copyStatus === "copied" ? "已复制结算文案" : "复制结算文案"}
+                </Button>
+                <Button className="w-full" onClick={exportImage}>
+                  <Camera className="h-4 w-4" />
+                  导出分享图
+                </Button>
+              </div>
+              <div className="mt-3 grid gap-2">
                 <Button variant="outline" className="w-full" onClick={exportCurrentLedgerJson}>
                   <FileDown className="h-4 w-4" />
                   备份当前账本
@@ -1099,10 +1181,6 @@ function App() {
                 <Button variant="outline" className="w-full" onClick={exportCsv}>
                   <Download className="h-4 w-4" />
                   导出消费明细
-                </Button>
-                <Button className="w-full" onClick={exportImage}>
-                  <Camera className="h-4 w-4" />
-                  导出分享图
                 </Button>
               </div>
               <div className="mt-3 rounded-2xl bg-slate-50 p-3 text-xs leading-5 text-slate-500">数据保存在当前浏览器，导出备份后可以留存或发给同行成员。</div>
@@ -1138,43 +1216,75 @@ function App() {
             </Card>
 
             <Card className={`overflow-hidden ${activeDetailTab === "share" ? "" : "hidden lg:block"}`}>
-              <div className="mb-4 flex items-center justify-between gap-3">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="text-lg font-semibold">分享账单预览</div>
-                <Button onClick={exportImage}>
-                  <Camera className="h-4 w-4" />
-                  导出图片
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" onClick={copySettlementText}>
+                    {copyStatus === "copied" ? <Check className="h-4 w-4" /> : <FileDown className="h-4 w-4" />}
+                    {copyStatus === "copied" ? "已复制" : "复制结算文案"}
+                  </Button>
+                  <Button onClick={exportImage}>
+                    <Camera className="h-4 w-4" />
+                    导出图片
+                  </Button>
+                </div>
               </div>
-              <div ref={reportRef} className="rounded-3xl bg-slate-50 p-5 md:p-8">
-                <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-                  <div className="mb-6 border-b border-slate-100 pb-5">
-                    <div className="text-sm font-medium text-slate-500">旅行 AA 账单</div>
-                    <div className="mt-1 text-3xl font-bold text-slate-950">{currentLedger.name}</div>
-                    <div className="mt-2 text-sm text-slate-500">成员：{currentLedger.members.map((member) => member.name).join("、")} · 生成于 {new Date().toLocaleDateString("zh-CN")}</div>
+              <div ref={reportRef} className="rounded-3xl bg-slate-50 p-4 md:p-6">
+                <div className="mx-auto max-w-2xl rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200 md:p-6">
+                  <div className="border-b border-slate-100 pb-4">
+                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">旅行 AA 账单</div>
+                    <div className="mt-2 break-words text-2xl font-bold leading-tight text-slate-950 md:text-3xl">{currentLedger.name}</div>
+                    <div className="mt-2 break-words text-sm leading-6 text-slate-500">
+                      成员：{currentLedger.members.map((member) => member.name).join("、")} · 生成于 {new Date().toLocaleDateString("zh-CN")}
+                    </div>
                   </div>
-                  <div className="grid gap-3 md:grid-cols-3">
-                    <div className="rounded-2xl bg-slate-50 p-4">
+
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <div className="rounded-2xl bg-slate-50 p-3">
                       <div className="text-xs text-slate-500">总消费</div>
-                      <div className="mt-1 text-2xl font-bold">¥{money(stats.total)}</div>
+                      <div className="mt-1 text-xl font-bold text-slate-950">¥{money(stats.total)}</div>
                     </div>
-                    <div className="rounded-2xl bg-slate-50 p-4">
+                    <div className="rounded-2xl bg-slate-50 p-3">
                       <div className="text-xs text-slate-500">AA 总额</div>
-                      <div className="mt-1 text-2xl font-bold">¥{money(stats.aaTotal)}</div>
+                      <div className="mt-1 text-xl font-bold text-slate-950">¥{money(stats.aaTotal)}</div>
                     </div>
-                    <div className="rounded-2xl bg-slate-50 p-4">
+                    <div className="rounded-2xl bg-slate-50 p-3">
+                      <div className="text-xs text-slate-500">人均参考</div>
+                      <div className="mt-1 text-xl font-bold text-slate-950">¥{money(stats.perMember)}</div>
+                    </div>
+                    <div className="rounded-2xl bg-slate-50 p-3">
                       <div className="text-xs text-slate-500">账单数</div>
-                      <div className="mt-1 text-2xl font-bold">{currentLedger.records.length}</div>
+                      <div className="mt-1 text-xl font-bold text-slate-950">{currentLedger.records.length}</div>
                     </div>
                   </div>
-                  <div className="mt-6 grid gap-5 md:grid-cols-2">
+
+                  <div className="mt-5">
+                    <div className="mb-2 text-sm font-semibold text-slate-900">结算建议</div>
+                    <div className="space-y-2">
+                      {currentLedger.records.length === 0 ? (
+                        <div className="rounded-2xl bg-slate-50 p-3 text-sm text-slate-500">目前还没有账单，暂无结算建议。</div>
+                      ) : stats.transfers.length === 0 ? (
+                        <div className="rounded-2xl bg-emerald-50 p-3 text-sm font-medium text-emerald-700">目前无需互相转账。</div>
+                      ) : (
+                        stats.transfers.map((transfer) => (
+                          <div key={`${transfer.fromMemberId}-${transfer.toMemberId}-${transfer.amount}`} className="flex items-start justify-between gap-3 rounded-2xl bg-slate-50 px-3 py-2.5 text-sm">
+                            <span className="min-w-0 break-words font-medium">{transfer.from} 给 {transfer.to}</span>
+                            <b className="shrink-0 text-slate-950">¥{money(transfer.amount)}</b>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid gap-4 md:grid-cols-2">
                     <div>
-                      <div className="mb-3 font-semibold">成员统计</div>
+                      <div className="mb-2 text-sm font-semibold text-slate-900">成员统计</div>
                       <div className="space-y-2">
                         {stats.membersSummary.map((item) => (
-                          <div key={item.memberId} className="rounded-xl bg-slate-50 px-3 py-2 text-sm">
-                            <div className="flex justify-between">
-                              <span>{item.name}</span>
-                              <b>{item.net >= 0 ? "应收" : "应付"} ¥{money(Math.abs(item.net))}</b>
+                          <div key={item.memberId} className="rounded-2xl bg-slate-50 px-3 py-2 text-sm">
+                            <div className="flex items-start justify-between gap-3">
+                              <span className="min-w-0 break-words font-medium">{item.name}</span>
+                              <b className={`shrink-0 ${item.net >= 0 ? "text-emerald-700" : "text-rose-600"}`}>{item.net >= 0 ? "应收" : "应付"} ¥{money(Math.abs(item.net))}</b>
                             </div>
                             <div className="mt-1 text-xs text-slate-500">支付 ¥{money(item.paid)} / 应承担 ¥{money(item.share)}</div>
                           </div>
@@ -1182,26 +1292,23 @@ function App() {
                       </div>
                     </div>
                     <div>
-                      <div className="mb-3 font-semibold">结算建议</div>
+                      <div className="mb-2 text-sm font-semibold text-slate-900">分类概览</div>
                       <div className="space-y-2">
-                        {stats.transfers.length === 0 ? <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">暂无需要转账的款项</div> : stats.transfers.map((transfer) => (
-                          <div key={`${transfer.fromMemberId}-${transfer.toMemberId}`} className="flex justify-between rounded-xl bg-slate-50 px-3 py-2 text-sm">
-                            <span>{transfer.from} 给 {transfer.to}</span>
-                            <b>¥{money(transfer.amount)}</b>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="mt-5 mb-3 font-semibold">分类概览</div>
-                      <div className="space-y-2">
-                        {stats.categories.slice(0, 6).map((category) => (
-                          <div key={category.category} className="flex justify-between rounded-xl bg-slate-50 px-3 py-2 text-sm">
-                            <span>{category.category}</span>
-                            <span>¥{money(category.total)}</span>
-                          </div>
-                        ))}
+                        {stats.categories.length === 0 ? (
+                          <div className="rounded-2xl bg-slate-50 p-3 text-sm text-slate-500">暂无分类统计。</div>
+                        ) : (
+                          stats.categories.slice(0, 5).map((category) => (
+                            <div key={category.category} className="flex justify-between gap-3 rounded-2xl bg-slate-50 px-3 py-2 text-sm">
+                              <span className="min-w-0 break-words">{category.category}</span>
+                              <span className="shrink-0 font-medium">¥{money(category.total)}</span>
+                            </div>
+                          ))
+                        )}
                       </div>
                     </div>
                   </div>
+
+                  <div className="mt-5 rounded-2xl bg-slate-950 px-4 py-3 text-center text-xs leading-5 text-white">账单已整理，如有问题可以再核对。</div>
                 </div>
               </div>
             </Card>
