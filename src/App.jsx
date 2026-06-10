@@ -139,6 +139,7 @@ function App() {
   const [ledgerMembersDraft, setLedgerMembersDraft] = useState("我、朋友A");
   const [recordForm, setRecordForm] = useState(() => makeRecordForm(appState.ledgers[0]));
   const [editingRecordId, setEditingRecordId] = useState(null);
+  const [isRecordFormOpen, setIsRecordFormOpen] = useState(false);
   const [adjustmentForm, setAdjustmentForm] = useState(() => makeAdjustmentForm(appState.ledgers[0]));
   const [logForm, setLogForm] = useState({ date: today(), title: "", location: "", detail: "" });
   const [memberDraft, setMemberDraft] = useState("");
@@ -216,6 +217,7 @@ function App() {
     setLedgerMembersDraft("我、朋友A");
     setRecordForm(makeRecordForm(ledger));
     setAdjustmentForm(makeAdjustmentForm(ledger));
+    setIsRecordFormOpen(false);
     setView("detail");
   }
 
@@ -226,6 +228,7 @@ function App() {
     setRecordForm(makeRecordForm(ledger));
     setAdjustmentForm(makeAdjustmentForm(ledger));
     setEditingRecordId(null);
+    setIsRecordFormOpen(false);
     setView("detail");
   }
 
@@ -374,6 +377,13 @@ function App() {
     }));
     setEditingRecordId(null);
     setRecordForm(makeRecordForm(currentLedger));
+    setIsRecordFormOpen(false);
+  }
+
+  function startAddRecord() {
+    setEditingRecordId(null);
+    setRecordForm(makeRecordForm(currentLedger));
+    setIsRecordFormOpen(true);
   }
 
   function startEditRecord(record) {
@@ -388,12 +398,14 @@ function App() {
       participantIds: record.participantIds?.length ? record.participantIds : currentLedger.members.map((member) => member.id),
       note: record.note || "",
     });
+    setIsRecordFormOpen(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function cancelRecordEdit() {
     setEditingRecordId(null);
     setRecordForm(makeRecordForm(currentLedger));
+    setIsRecordFormOpen(false);
   }
 
   function removeRecord(recordId) {
@@ -661,16 +673,16 @@ function App() {
     );
   }
 
-  function renderRecordForm() {
+  function renderRecordForm({ inDrawer = false } = {}) {
     return (
-      <Card>
+      <Card className={inDrawer ? "max-h-[82vh] overflow-y-auto rounded-b-none rounded-t-3xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl ring-0" : ""}>
         <div className="mb-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-lg font-semibold">
             <ReceiptText className="h-5 w-5" />
             {editingRecordId ? "编辑账单" : "添加账单"}
           </div>
-          {editingRecordId && (
-            <Button variant="ghost" onClick={cancelRecordEdit}>
+          {(editingRecordId || inDrawer) && (
+            <Button variant={inDrawer ? "soft" : "ghost"} onClick={cancelRecordEdit}>
               <X className="h-4 w-4" />
               取消
             </Button>
@@ -679,23 +691,23 @@ function App() {
         <form className="space-y-4" onSubmit={saveRecord}>
           <div className="grid gap-3 md:grid-cols-2">
             <Field label="消费名称">
-              <input className="w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-slate-400" value={recordForm.title} onChange={(event) => setRecordForm({ ...recordForm, title: event.target.value })} placeholder="例如 午饭、打车、酒店" />
+              <input className="w-full rounded-xl border border-slate-200 px-3 py-3 outline-none focus:border-slate-400 md:py-2" value={recordForm.title} onChange={(event) => setRecordForm({ ...recordForm, title: event.target.value })} placeholder="例如 午饭、打车、酒店" />
             </Field>
             <Field label="金额">
-              <input className="w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-slate-400" inputMode="decimal" value={recordForm.amount} onChange={(event) => setRecordForm({ ...recordForm, amount: event.target.value })} placeholder="支持 120-20 或 80/2" />
+              <input className="w-full rounded-xl border border-slate-200 px-3 py-3 outline-none focus:border-slate-400 md:py-2" inputMode="decimal" value={recordForm.amount} onChange={(event) => setRecordForm({ ...recordForm, amount: event.target.value })} placeholder="支持 120-20 或 80/2" />
             </Field>
             <Field label="日期">
-              <input type="date" className="w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-slate-400" value={recordForm.date} onChange={(event) => setRecordForm({ ...recordForm, date: event.target.value })} />
+              <input type="date" className="w-full rounded-xl border border-slate-200 px-3 py-3 outline-none focus:border-slate-400 md:py-2" value={recordForm.date} onChange={(event) => setRecordForm({ ...recordForm, date: event.target.value })} />
             </Field>
             <Field label="分类">
-              <select className="w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-slate-400" value={recordForm.category} onChange={(event) => setRecordForm({ ...recordForm, category: event.target.value })}>
+              <select className="w-full rounded-xl border border-slate-200 px-3 py-3 outline-none focus:border-slate-400 md:py-2" value={recordForm.category} onChange={(event) => setRecordForm({ ...recordForm, category: event.target.value })}>
                 {currentLedger.categories.map((category) => (
                   <option key={category}>{category}</option>
                 ))}
               </select>
             </Field>
             <Field label="付款人">
-              <select className="w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-slate-400" value={recordForm.payerId} onChange={(event) => setRecordForm({ ...recordForm, payerId: event.target.value })}>
+              <select className="w-full rounded-xl border border-slate-200 px-3 py-3 outline-none focus:border-slate-400 md:py-2" value={recordForm.payerId} onChange={(event) => setRecordForm({ ...recordForm, payerId: event.target.value })}>
                 {currentLedger.members.map((member) => (
                   <option key={member.id} value={member.id}>{member.name}</option>
                 ))}
@@ -747,10 +759,17 @@ function App() {
             <input className="w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-slate-400" value={recordForm.note} onChange={(event) => setRecordForm({ ...recordForm, note: event.target.value })} placeholder="可选，例如只买了两张票" />
           </Field>
 
-          <Button type="submit" className="w-full">
+          <div className={inDrawer ? "grid grid-cols-[0.8fr_1.2fr] gap-2" : ""}>
+            {inDrawer && (
+              <Button variant="outline" className="w-full" onClick={cancelRecordEdit}>
+                取消
+              </Button>
+            )}
+            <Button type="submit" className="w-full">
             <Save className="h-4 w-4" />
             {editingRecordId ? "保存修改" : "记一笔"}
-          </Button>
+            </Button>
+          </div>
         </form>
       </Card>
     );
@@ -801,7 +820,9 @@ function App() {
 
         <div className="grid gap-5 lg:grid-cols-[0.95fr_1.6fr]">
           <div className="space-y-5">
-            {renderRecordForm()}
+            <div className="hidden lg:block">
+              {renderRecordForm()}
+            </div>
 
             <Card>
               <div className="mb-4 flex items-center gap-2 text-lg font-semibold">
@@ -1121,8 +1142,18 @@ function App() {
           </div>
         </div>
 
-        <button type="button" className="fixed bottom-5 right-5 inline-flex h-14 w-14 items-center justify-center rounded-full bg-slate-950 text-white shadow-lg shadow-slate-900/20 transition hover:bg-slate-800 md:hidden" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} aria-label="添加账单">
+        {isRecordFormOpen && (
+          <div className="fixed inset-0 z-50 flex items-end bg-slate-950/40 px-0 pt-10 lg:hidden">
+            <button type="button" className="absolute inset-0 cursor-default" onClick={cancelRecordEdit} aria-label="关闭添加账单表单" />
+            <motion.div initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="relative w-full">
+              {renderRecordForm({ inDrawer: true })}
+            </motion.div>
+          </div>
+        )}
+
+        <button type="button" className="fixed bottom-5 right-5 z-40 inline-flex h-14 items-center justify-center gap-2 rounded-full bg-slate-950 px-5 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition hover:bg-slate-800 lg:hidden" onClick={startAddRecord} aria-label="添加账单">
           <Plus className="h-6 w-6" />
+          记一笔
         </button>
       </div>
     );
