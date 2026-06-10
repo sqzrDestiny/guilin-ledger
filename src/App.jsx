@@ -125,9 +125,9 @@ function Pill({ children, tone = "slate" }) {
 
 function StatCard({ label, value, sublabel }) {
   return (
-    <Card className="p-4">
-      <div className="text-sm text-slate-500">{label}</div>
-      <div className="mt-2 text-2xl font-bold tracking-tight text-slate-950">{value}</div>
+    <Card className="p-3 md:p-4">
+      <div className="text-xs font-medium text-slate-500 md:text-sm">{label}</div>
+      <div className="mt-1.5 text-xl font-bold tracking-tight text-slate-950 md:mt-2 md:text-2xl">{value}</div>
       {sublabel && <div className="mt-1 text-xs text-slate-400">{sublabel}</div>}
     </Card>
   );
@@ -141,6 +141,7 @@ function App() {
   const [recordForm, setRecordForm] = useState(() => makeRecordForm(appState.ledgers[0]));
   const [editingRecordId, setEditingRecordId] = useState(null);
   const [isRecordFormOpen, setIsRecordFormOpen] = useState(false);
+  const [activeDetailTab, setActiveDetailTab] = useState("overview");
   const [adjustmentForm, setAdjustmentForm] = useState(() => makeAdjustmentForm(appState.ledgers[0]));
   const [logForm, setLogForm] = useState({ date: today(), title: "", location: "", detail: "" });
   const [memberDraft, setMemberDraft] = useState("");
@@ -219,6 +220,7 @@ function App() {
     setRecordForm(makeRecordForm(ledger));
     setAdjustmentForm(makeAdjustmentForm(ledger));
     setIsRecordFormOpen(false);
+    setActiveDetailTab("overview");
     setView("detail");
   }
 
@@ -230,6 +232,7 @@ function App() {
     setAdjustmentForm(makeAdjustmentForm(ledger));
     setEditingRecordId(null);
     setIsRecordFormOpen(false);
+    setActiveDetailTab("overview");
     setView("detail");
   }
 
@@ -385,6 +388,7 @@ function App() {
     setEditingRecordId(null);
     setRecordForm(makeRecordForm(currentLedger));
     setIsRecordFormOpen(true);
+    setActiveDetailTab("records");
   }
 
   function scrollToTop() {
@@ -404,6 +408,7 @@ function App() {
       note: record.note || "",
     });
     setIsRecordFormOpen(true);
+    setActiveDetailTab("records");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -783,12 +788,19 @@ function App() {
   function renderDetail() {
     if (!currentLedger) return null;
 
+    const detailTabs = [
+      { id: "overview", label: "概览" },
+      { id: "records", label: "账单" },
+      { id: "members", label: "成员" },
+      { id: "share", label: "分享" },
+    ];
+
     return (
-      <div className="mx-auto max-w-7xl space-y-5">
-        <header className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div className="mx-auto max-w-7xl space-y-4">
+        <header className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200 md:p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <div className="mb-3 flex flex-wrap items-center gap-2">
+              <div className="mb-2 flex flex-wrap items-center gap-2">
                 <Button variant="ghost" onClick={() => setView("home")}>
                   <ArrowLeft className="h-4 w-4" />
                   账本首页
@@ -796,19 +808,27 @@ function App() {
                 <Pill tone="blue">本地保存</Pill>
                 <Pill tone="green">{currentLedger.members.length} 位成员</Pill>
               </div>
-              <input className="w-full bg-transparent text-3xl font-bold tracking-tight outline-none md:text-5xl" value={currentLedger.name} onChange={(event) => updateCurrentLedger({ ...currentLedger, name: event.target.value })} />
-              <p className="mt-2 text-slate-600">记录共同消费、个人消费和已经发生的转账，旅行结束后一键导出分享。</p>
+              <input className="w-full bg-transparent text-2xl font-bold tracking-tight outline-none md:text-4xl" value={currentLedger.name} onChange={(event) => updateCurrentLedger({ ...currentLedger, name: event.target.value })} />
+              <p className="mt-1.5 max-w-2xl text-sm leading-6 text-slate-600 md:text-base">记录旅途共同消费、个人消费和结算转账，结束后可导出分享。</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={exportCurrentLedgerJson}>
+              <Button onClick={startAddRecord}>
+                <Plus className="h-4 w-4" />
+                记一笔
+              </Button>
+              <Button variant="outline" onClick={() => setActiveDetailTab("share")}>
+                <Camera className="h-4 w-4" />
+                分享
+              </Button>
+              <Button variant="outline" className="hidden md:inline-flex" onClick={exportCurrentLedgerJson}>
                 <FileDown className="h-4 w-4" />
                 备份账本
               </Button>
-              <Button variant="outline" onClick={exportCsv}>
+              <Button variant="outline" className="hidden md:inline-flex" onClick={exportCsv}>
                 <Download className="h-4 w-4" />
                 导出明细
               </Button>
-              <Button onClick={exportImage}>
+              <Button className="hidden md:inline-flex" onClick={exportImage}>
                 <Camera className="h-4 w-4" />
                 导出分享图
               </Button>
@@ -816,15 +836,30 @@ function App() {
           </div>
         </header>
 
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <StatCard label="总消费" value={`¥${money(stats.total)}`} sublabel={`${currentLedger.records.length} 笔账单`} />
-          <StatCard label="人均参考" value={`¥${money(stats.perMember)}`} sublabel="按账本成员数均分总额" />
-          <StatCard label="AA 总额" value={`¥${money(stats.aaTotal)}`} sublabel="参与结算的共同消费" />
-          <StatCard label="待结算" value={`${stats.transfers.length} 条`} sublabel={stats.transfers.length ? "查看下方结算建议" : "目前无需转账"} />
+          <StatCard label="人均" value={`¥${money(stats.perMember)}`} sublabel="按成员数参考" />
+          <StatCard label="AA 总额" value={`¥${money(stats.aaTotal)}`} sublabel="共同消费" />
+          <StatCard label="待结算" value={`${stats.transfers.length} 条`} sublabel={stats.transfers.length ? "看概览" : "无需转账"} />
         </div>
 
+        <nav className="sticky top-2 z-30 rounded-2xl bg-white/95 p-1 shadow-sm ring-1 ring-slate-200 backdrop-blur lg:hidden" aria-label="账本详情分区">
+          <div className="grid grid-cols-4 gap-1">
+            {detailTabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                className={`rounded-xl px-2 py-2 text-sm font-medium transition ${activeDetailTab === tab.id ? "bg-slate-950 text-white" : "text-slate-600 hover:bg-slate-100"}`}
+                onClick={() => setActiveDetailTab(tab.id)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </nav>
+
         <div className="grid gap-5 lg:grid-cols-[0.95fr_1.6fr]">
-          <div className="space-y-5">
+          <div className={`space-y-5 ${activeDetailTab === "members" ? "" : "hidden lg:block"}`}>
             <div className="hidden lg:block">
               {renderRecordForm()}
             </div>
@@ -885,7 +920,7 @@ function App() {
           </div>
 
           <div className="space-y-5">
-            <Card>
+            <Card className={activeDetailTab === "records" ? "" : "hidden lg:block"}>
               <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                 <div className="flex items-center gap-2 text-lg font-semibold">
                   <ReceiptText className="h-5 w-5" />
@@ -904,7 +939,14 @@ function App() {
               </div>
 
               {filteredRecords.length === 0 ? (
-                <div className="rounded-2xl bg-slate-50 p-8 text-center text-slate-500">还没有账单，先记一笔吧。</div>
+                <div className="rounded-2xl bg-slate-50 p-8 text-center">
+                  <div className="font-medium text-slate-700">还没有账单，先记一笔吧。</div>
+                  <div className="mt-1 text-sm text-slate-500">记录付款人和参与 AA 的成员后，统计会自动更新。</div>
+                  <Button className="mt-4" onClick={startAddRecord}>
+                    <Plus className="h-4 w-4" />
+                    记一笔
+                  </Button>
+                </div>
               ) : (
                 <div className="space-y-3">
                   {filteredRecords.map((record) => (
@@ -938,7 +980,7 @@ function App() {
               )}
             </Card>
 
-            <div className="grid gap-5 xl:grid-cols-2">
+            <div className={`grid gap-5 xl:grid-cols-2 ${activeDetailTab === "overview" ? "" : "hidden lg:grid"}`}>
               <Card>
                 <div className="mb-4 flex items-center gap-2 text-lg font-semibold">
                   <ArrowRightLeft className="h-5 w-5" />
@@ -1009,13 +1051,13 @@ function App() {
               </Card>
             </div>
 
-            <Card>
+            <Card className={activeDetailTab === "overview" ? "" : "hidden lg:block"}>
               <div className="mb-4 text-lg font-semibold">统计</div>
               <div className="grid gap-6 lg:grid-cols-2">
                 <div>
                   <div className="mb-3 text-sm font-medium text-slate-600">每日消费</div>
                   <div className="space-y-3">
-                    {stats.daily.length === 0 ? <div className="text-sm text-slate-500">暂无数据</div> : stats.daily.map((day) => (
+                    {stats.daily.length === 0 ? <div className="text-sm text-slate-500">暂无统计，记账后这里会自动更新。</div> : stats.daily.map((day) => (
                       <div key={day.date}>
                         <div className="mb-1 flex justify-between gap-3 text-sm">
                           <span>{day.date}</span>
@@ -1031,7 +1073,7 @@ function App() {
                 <div>
                   <div className="mb-3 text-sm font-medium text-slate-600">分类消费</div>
                   <div className="space-y-3">
-                    {stats.categories.length === 0 ? <div className="text-sm text-slate-500">暂无数据</div> : stats.categories.map((category) => (
+                    {stats.categories.length === 0 ? <div className="text-sm text-slate-500">暂无统计，记账后这里会自动更新。</div> : stats.categories.map((category) => (
                       <div key={category.category}>
                         <div className="mb-1 flex justify-between gap-3 text-sm">
                           <span>{category.category}</span>
@@ -1047,7 +1089,26 @@ function App() {
               </div>
             </Card>
 
-            <Card>
+            <Card className={activeDetailTab === "share" ? "lg:hidden" : "hidden"}>
+              <div className="mb-4 text-lg font-semibold">导出与备份</div>
+              <div className="grid gap-2">
+                <Button variant="outline" className="w-full" onClick={exportCurrentLedgerJson}>
+                  <FileDown className="h-4 w-4" />
+                  备份当前账本
+                </Button>
+                <Button variant="outline" className="w-full" onClick={exportCsv}>
+                  <Download className="h-4 w-4" />
+                  导出消费明细
+                </Button>
+                <Button className="w-full" onClick={exportImage}>
+                  <Camera className="h-4 w-4" />
+                  导出分享图
+                </Button>
+              </div>
+              <div className="mt-3 rounded-2xl bg-slate-50 p-3 text-xs leading-5 text-slate-500">数据保存在当前浏览器，导出备份后可以留存或发给同行成员。</div>
+            </Card>
+
+            <Card className={activeDetailTab === "share" ? "" : "hidden lg:block"}>
               <div className="mb-4 flex items-center gap-2 text-lg font-semibold">
                 <CalendarDays className="h-5 w-5" />
                 行程记录
@@ -1076,7 +1137,7 @@ function App() {
               </div>
             </Card>
 
-            <Card className="overflow-hidden">
+            <Card className={`overflow-hidden ${activeDetailTab === "share" ? "" : "hidden lg:block"}`}>
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div className="text-lg font-semibold">分享账单预览</div>
                 <Button onClick={exportImage}>
@@ -1156,18 +1217,22 @@ function App() {
           </div>
         )}
 
-        <button type="button" className="fixed bottom-5 left-1/2 z-40 inline-flex h-14 -translate-x-1/2 items-center justify-center gap-2 rounded-full bg-slate-950 px-6 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition hover:bg-slate-800 lg:hidden" onClick={startAddRecord} aria-label="添加账单">
-          <Plus className="h-6 w-6" />
-          记一笔
-        </button>
-        <button type="button" className="fixed bottom-5 right-5 z-40 inline-flex h-12 w-12 items-center justify-center rounded-full bg-white text-slate-700 shadow-lg shadow-slate-900/15 ring-1 ring-slate-200 transition hover:bg-slate-50 lg:hidden" onClick={scrollToTop} aria-label="回到顶部">
-          <ArrowUp className="h-5 w-5" />
-        </button>
+        {!isRecordFormOpen && (
+          <>
+            <button type="button" className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-1/2 z-40 inline-flex h-14 -translate-x-1/2 items-center justify-center gap-2 rounded-full bg-slate-950 px-6 text-sm font-semibold text-white shadow-lg shadow-slate-900/20 transition hover:bg-slate-800 lg:hidden" onClick={startAddRecord} aria-label="添加账单">
+              <Plus className="h-6 w-6" />
+              记一笔
+            </button>
+            <button type="button" className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-5 z-40 inline-flex h-12 w-12 items-center justify-center rounded-full bg-white text-slate-700 shadow-lg shadow-slate-900/15 ring-1 ring-slate-200 transition hover:bg-slate-50 lg:hidden" onClick={scrollToTop} aria-label="回到顶部">
+              <ArrowUp className="h-5 w-5" />
+            </button>
+          </>
+        )}
       </div>
     );
   }
 
-  return <main className="min-h-screen bg-slate-100 px-4 py-5 text-slate-900 md:px-6 md:py-8">{view === "home" ? renderHome() : renderDetail()}</main>;
+  return <main className="min-h-screen bg-slate-100 px-4 py-5 pb-[calc(6rem+env(safe-area-inset-bottom))] text-slate-900 md:px-6 md:py-8 lg:pb-8">{view === "home" ? renderHome() : renderDetail()}</main>;
 }
 
 export default App;
